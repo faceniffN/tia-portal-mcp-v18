@@ -26,9 +26,15 @@ namespace TiaMcpServer
 
         private TiaPortal _tia;
         private Project _project;
+        private readonly bool _withUi;
 
-        public TiaService()
+        /// <summary>
+        /// withUi=true → WithUserInterface：AI 操作时 TIA GUI 可见（用户实时查看），冷启动较慢；
+        /// withUi=false（默认）→ WithoutUserInterface：headless 提速，GUI 不显示。
+        /// </summary>
+        public TiaService(bool withUi = false)
         {
+            _withUi = withUi;
             AppDomain.CurrentDomain.AssemblyResolve += ResolveEngineeringAssembly;
             PreloadEngineeringAssembly();
         }
@@ -50,8 +56,9 @@ namespace TiaMcpServer
         {
             if (_tia == null)
             {
-                // headless 模式（WithoutUserInterface）：冷启动 ~10-30s，比带界面快 10 倍（借鉴 bulaofen 方案）
-                _tia = new TiaPortal(TiaPortalMode.WithoutUserInterface);
+                // headless（WithoutUserInterface）：冷启动 ~10-30s，比带界面快 ~10 倍（借鉴 bulaofen 方案）
+                // with-ui（WithUserInterface）：AI 操作时 TIA GUI 可见，用户可实时查看工程变化
+                _tia = new TiaPortal(_withUi ? TiaPortalMode.WithUserInterface : TiaPortalMode.WithoutUserInterface);
             }
             return _tia;
         }

@@ -23,7 +23,10 @@ TiaMcpServer.exe --doctor   # 环境体检：TIA 安装/API dll/.NET 4.8/用户�
 TiaMcpServer.exe --config   # 一键写入 VS Code 的 mcp.json（用户级+项目级，已有配置自动备份 .bak）
 ```
 
-> **headless 连接**：默认 `WithoutUserInterface` 模式，冷启动约 10-30 秒（比带界面快 ~10 倍）。
+> **两种运行模式**（启动参数选择）：
+> - **默认（无参数）**：headless 无界面，冷启动约 10-30 秒（快），适合纯自动化批量操作
+> - **`--with-ui`**：带界面模式，**AI 操作时 TIA Portal 窗口保持打开**，可实时看到工程变化（导入/编译/保存），适合人机协作、边操作边查看；冷启动约 1-3 分钟
+>
 > 首次连接 TIA 会弹 Openness 授权窗，勾"始终允许"一次后免弹。
 
 ## 客户端配置
@@ -96,13 +99,16 @@ TiaMcpServer.exe --config   # 一键写入 VS Code 的 mcp.json（用户级+项�
 ## 推荐工作流（AI 全程操作，你随时 GUI 查看）
 
 ```
-AI 打开工程 → 导入/修改 → 编译 → 保存 → tia_shutdown（彻底释放）
-→ 你随时打开 TIA GUI 查看/继续手动修改 → 改完保存关闭
-→ 再次让 AI 打开操作（循环）
+配置 --with-ui 后：
+AI 打开工程 → TIA 窗口弹出，你全程可见
+→ AI 导入/修改/编译/保存（画面、变量表实时变化）
+→ AI 操作完，窗口保持打开，你继续查看/手动调整
+→ 你保存关闭 TIA → 下次再让 AI 打开操作（循环）
 ```
 
-- AI 操作后**必须** `tia_shutdown` 收尾（只清理无窗口 headless 实例，你的 GUI 实例不会被动）
-- 若你 GUI 正开着同一工程，AI 打开会失败——先保存关闭 GUI 再让 AI 操作
+- **带界面模式**（`--with-ui`）：AI 操作时 GUI 保持打开，人机协作最佳体验；冷启动慢
+- **headless 模式**（默认）：纯自动化提速，GUI 不显示
+- AI 操作后 `tia_shutdown` 收尾：headless 模式彻底释放；with-ui 模式保留 GUI 窗口（有窗口实例不杀）
 - 孤儿 TIA 进程（异常退出残留）处置：`Stop-Process -Name "Siemens.Automation.Portal"`
 
 ## 关键知识与边界（全部实测/官方文档确认）

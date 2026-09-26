@@ -40,6 +40,7 @@ namespace TiaMcpServer
                 Console.WriteLine("  TiaMcpServer.exe --tools      # 打印工具清单（自检）");
                 Console.WriteLine("  TiaMcpServer.exe --doctor     # 环境体检（TIA/API/.NET/用户组/授权）");
                 Console.WriteLine("  TiaMcpServer.exe --config     # 一键写入 VS Code 的 MCP 配置");
+                Console.WriteLine("  TiaMcpServer.exe --with-ui    # 带界面模式：AI 操作时 TIA GUI 可见（用户实时查看）");
                 return 0;
             }
 
@@ -59,7 +60,16 @@ namespace TiaMcpServer
                 return WriteConfig();
             }
 
-            using (var service = new TiaService())
+            bool withUi = false;
+            var filtered = new List<string>();
+            foreach (string a in args)
+            {
+                if (a == "--with-ui") withUi = true;
+                else filtered.Add(a);
+            }
+            args = filtered.ToArray();
+
+            using (var service = new TiaService(withUi))
             {
                 var server = new McpServer(Console.In, Console.Out);
                 foreach (var tool in BuildTools(service)) server.Register(tool);
