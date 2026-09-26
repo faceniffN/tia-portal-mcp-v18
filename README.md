@@ -54,13 +54,14 @@ TiaMcpServer.exe --config   # 一键写入 VS Code 的 mcp.json（用户级+项�
 {
   "mcp": {
     "tia-v18": {
-      "type": "stdio",
+      "type": "local",
       "command": ["C:\\path\\to\\TiaMcpServer.exe", "--with-ui"],
       "enabled": true
     }
   }
 }
 ```
+> 注意：opencode 本地 MCP 用 `type: "local"`（不是 `stdio`）。
 
 首次被客户端拉起并打开工程时，TIA Portal 会弹 **Openness 应用授权** 窗口——勾选"始终允许"一次，
 此后免弹窗（TIA 会记住授权）。
