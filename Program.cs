@@ -166,7 +166,7 @@ namespace TiaMcpServer
                 Name = "tia_save_project",
                 Description = "保存当前工程。",
                 InputSchema = Schema(),
-                Handler = args => { tia.Save(); return new JsonObject { ["saved"] = true }; }
+                Handler = args => { tia.Save(); return new JsonObject { ["saved"] = true, ["report"] = "工程已保存" }; }
             });
 
             tools.Add(new ToolDef

@@ -110,6 +110,24 @@ TiaMcpServer.exe --config   # 一键写入 VS Code 的 mcp.json（用户级+项�
   样式属性放 `Properties` 嵌套（FontSize/ForeColor/TabIndex…）、按钮事件 `Actions:[{Event,ActionKind,TargetTag}]`
 - 完整示例见 `..\ClassicHmiBuilder\test01_package.json`
 
+## 文字汇报（report 字段）
+
+**所有工具返回都带 `report` 字段**——人类可读的操作汇报（中文），AI 客户端应原样转述给用户，实现"全程文字看过程"：
+
+```json
+// tia_open_project / tia_project_status
+"report": "工程 TEST01 已打开：PLC 1 台、HMI 1 台；连接 [Connection_1]；画面 [画面_1]；变量表 [默认变量表、测试_变量表]"
+
+// tia_import_tag_table
+"report": "已导入变量表：测试_变量表，共 3 个变量（HMI_Start、HMI_Stop、HMI_Run_X），回读验证通过"
+
+// tia_compile
+"report": "PLC 编译成功（0 错误 0 警告）；HMI 编译成功（0 错误 0 警告）"
+
+// tia_save_project / tia_delete_object / tia_shutdown
+"report": "工程已保存" / "已删除画面 画面_2" / "TIA 会话已释放，工程文件已解锁..."
+```
+
 ## 推荐工作流（AI 全程操作，你随时 GUI 查看）
 
 ```
