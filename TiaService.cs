@@ -374,6 +374,40 @@ namespace TiaMcpServer
             }
         }
 
+        /// <summary>彻底关闭：关闭工程 + 释放 TIA 会话 + 清理无窗口的 headless TIA 进程（解锁工程文件，用户 GUI 可立即打开）。
+        /// 只清理无窗口实例（Openness 启动的 headless）；用户 GUI 实例有窗口，绝不误杀。</summary>
+        public JsonObject Shutdown()
+        {
+            try { CloseProject(); } catch (Exception) { }
+            try { _tia?.Dispose(); } catch (Exception) { }
+            _tia = null;
+
+            int killed = 0;
+            try
+            {
+                foreach (System.Diagnostics.Process proc in System.Diagnostics.Process.GetProcessesByName("Siemens.Automation.Portal"))
+                {
+                    try
+                    {
+                        if (proc.MainWindowHandle == IntPtr.Zero) // 无窗口 = headless（Openness 启动）
+                        {
+                            proc.Kill();
+                            killed++;
+                        }
+                    }
+                    catch (Exception) { }
+                }
+            }
+            catch (Exception) { }
+
+            return new JsonObject
+            {
+                ["shutdown"] = true,
+                ["headlessProcessesKilled"] = killed,
+                ["note"] = "TIA 会话已释放，headless 进程已清理，工程文件已解锁，可打开 TIA GUI 查看"
+            };
+        }
+
         private void EnsureProject()
         {
             if (_project == null) throw new InvalidOperationException("No project open. Call tia_open_project first.");

@@ -59,6 +59,7 @@ TiaMcpServer.exe --config   # 一键写入 VS Code 的 mcp.json（用户级+项�
 | `tia_save_project` | — | 保存工程 |
 | `tia_close_project` | — | 关闭工程（TIA 会话保持） |
 | `tia_delete_object` | `type`, `name` | 删除 HMI 对象：type=`tagTable`\|`screen`\|`connection`（工程维护） |
+| `tia_shutdown` | — | **彻底释放**：关工程 + 释放 TIA + 清理无窗口 headless 进程，解锁工程文件（收尾必调，之后可开 GUI 查看） |
 
 ### 查询类
 | 工具 | 说明 |
@@ -91,6 +92,18 @@ TiaMcpServer.exe --config   # 一键写入 VS Code 的 mcp.json（用户级+项�
 - `ScreenDesign.Items[]`：`Type`(Text/Button/IOField/Rectangle)、`Name`/`Text`/`Left`/`Top`/`Width`/`Height`、
   样式属性放 `Properties` 嵌套（FontSize/ForeColor/TabIndex…）、按钮事件 `Actions:[{Event,ActionKind,TargetTag}]`
 - 完整示例见 `..\ClassicHmiBuilder\test01_package.json`
+
+## 推荐工作流（AI 全程操作，你随时 GUI 查看）
+
+```
+AI 打开工程 → 导入/修改 → 编译 → 保存 → tia_shutdown（彻底释放）
+→ 你随时打开 TIA GUI 查看/继续手动修改 → 改完保存关闭
+→ 再次让 AI 打开操作（循环）
+```
+
+- AI 操作后**必须** `tia_shutdown` 收尾（只清理无窗口 headless 实例，你的 GUI 实例不会被动）
+- 若你 GUI 正开着同一工程，AI 打开会失败——先保存关闭 GUI 再让 AI 操作
+- 孤儿 TIA 进程（异常退出残留）处置：`Stop-Process -Name "Siemens.Automation.Portal"`
 
 ## 关键知识与边界（全部实测/官方文档确认）
 

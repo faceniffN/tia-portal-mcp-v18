@@ -177,6 +177,14 @@ namespace TiaMcpServer
 
             tools.Add(new ToolDef
             {
+                Name = "tia_shutdown",
+                Description = "彻底关闭：关闭工程 + 释放 TIA 会话，解锁工程文件（用户可立即用 GUI 打开查看）。操作完成后的收尾调用。",
+                InputSchema = Schema(),
+                Handler = args => tia.Shutdown()
+            });
+
+            tools.Add(new ToolDef
+            {
                 Name = "hmi_build_package",
                 Description = "离线生成 Classic HMI 资产（标签表+画面 XML+manifest）并归一化为 V18 版。输入 package JSON（Name/TagTable/ScreenDesign），输出到指定目录。",
                 InputSchema = Schema(new[]
