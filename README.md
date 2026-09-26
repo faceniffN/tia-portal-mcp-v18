@@ -48,6 +48,19 @@ TiaMcpServer.exe --config   # 一键写入 VS Code 的 mcp.json（用户级+项�
 - **VS Code**：`.vscode/mcp.json` 或用户设置 `mcp` 段
 - **Cursor**：`~/.cursor/mcp.json`
 - **Cline / Roo Code**：设置页 MCP servers 中添加
+- **OpenCode（终端版/桌面版）**：`~/.config/opencode/opencode.json`（Windows: `%USERPROFILE%\.config\opencode\opencode.json`）：
+
+```json
+{
+  "mcp": {
+    "tia-v18": {
+      "type": "stdio",
+      "command": ["C:\\path\\to\\TiaMcpServer.exe", "--with-ui"],
+      "enabled": true
+    }
+  }
+}
+```
 
 首次被客户端拉起并打开工程时，TIA Portal 会弹 **Openness 应用授权** 窗口——勾选"始终允许"一次，
 此后免弹窗（TIA 会记住授权）。
