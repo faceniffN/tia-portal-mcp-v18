@@ -1,0 +1,13 @@
+# 编译产物
+bin/
+obj/
+*.user
+.vs/
+
+# 本地测试产物（不发布）
+out_abs/
+out/
+*.json.bak
+
+# 临时/日志
+*.log
