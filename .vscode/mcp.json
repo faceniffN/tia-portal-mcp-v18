@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "tia-v18": {
+      "type": "stdio",
+      "command": "C:\\Users\\Administrator\\Doubao\\chats\\2026-09-24\\new-chat\\TiaMcpServer\\bin\\Release\\net48\\TiaMcpServer.exe",
+      "args": []
+    }
+  }
+}

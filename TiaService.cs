@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Text.Json.Nodes;
 using Siemens.Engineering;
@@ -49,7 +50,8 @@ namespace TiaMcpServer
         {
             if (_tia == null)
             {
-                _tia = new TiaPortal(TiaPortalMode.WithUserInterface);
+                // headless 模式（WithoutUserInterface）：冷启动 ~10-30s，比带界面快 10 倍（借鉴 bulaofen 方案）
+                _tia = new TiaPortal(TiaPortalMode.WithoutUserInterface);
             }
             return _tia;
         }
@@ -230,7 +232,7 @@ namespace TiaMcpServer
             return null;
         }
 
-        /// <summary>导入 HMI 标签表 XML（绝对地址/非集成连接格式已验证可导入）。</summary>
+        /// <summary>导入 HMI 标签表 XML（绝对地址/非集成连接格式已验证可导入），导入后回读验证。</summary>
         public JsonObject ImportTagTable(string xmlPath)
         {
             EnsureProject();
@@ -239,10 +241,23 @@ namespace TiaMcpServer
             var imported = hmi.TagFolder.TagTables.Import(new FileInfo(xmlPath), ImportOptions.Override);
             var names = new JsonArray();
             foreach (TagTable table in imported) names.Add(table.Name);
-            return new JsonObject { ["importedTables"] = names };
+            // 回读验证：确认标签真实写入（避免"导入成功但未链接"）
+            var verified = new JsonArray();
+            var after = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (TagTable table in hmi.TagFolder.TagTables)
+            {
+                foreach (Tag tag in table.Tags) after.Add(table.Name + "/" + tag.Name);
+            }
+            foreach (JsonNode n in names)
+            {
+                string tableName = n?.ToString() ?? "";
+                int count = after.Count(s => s.StartsWith(tableName + "/", StringComparison.OrdinalIgnoreCase));
+                verified.Add(new JsonObject { ["table"] = tableName, ["tagCount"] = count, ["ok"] = count > 0 });
+            }
+            return new JsonObject { ["importedTables"] = names, ["verified"] = verified };
         }
 
-        /// <summary>导入 HMI 画面 XML（元素需含 ObjectName、画面号唯一——已验证规则）。</summary>
+        /// <summary>导入 HMI 画面 XML（元素需含 ObjectName、画面号唯一——已验证规则），导入后回读验证。</summary>
         public JsonObject ImportScreen(string xmlPath)
         {
             EnsureProject();
@@ -251,7 +266,16 @@ namespace TiaMcpServer
             var imported = hmi.ScreenFolder.Screens.Import(new FileInfo(xmlPath), ImportOptions.Override);
             var names = new JsonArray();
             foreach (Screen screen in imported) names.Add(screen.Name);
-            return new JsonObject { ["importedScreens"] = names };
+            // 回读验证
+            var verified = new JsonArray();
+            var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (Screen screen in hmi.ScreenFolder.Screens) existing.Add(screen.Name);
+            foreach (JsonNode n in names)
+            {
+                string name = n?.ToString() ?? "";
+                verified.Add(new JsonObject { ["screen"] = name, ["ok"] = existing.Contains(name) });
+            }
+            return new JsonObject { ["importedScreens"] = names, ["verified"] = verified };
         }
 
         /// <summary>编译 PLC / HMI / all，返回逐条消息。</summary>
@@ -310,6 +334,35 @@ namespace TiaMcpServer
         {
             EnsureProject();
             _project.Save();
+        }
+
+        /// <summary>删除 HMI 对象（tagTable / screen / connection），借鉴 bulaofen 的工程维护能力。</summary>
+        public JsonObject DeleteObject(string type, string name)
+        {
+            EnsureProject();
+            var hmi = FindHmiTarget();
+            if (hmi == null) throw new InvalidOperationException("No HmiTarget found in project.");
+            switch (type)
+            {
+                case "tagTable":
+                    var table = hmi.TagFolder.TagTables.Find(name);
+                    if (table == null) return new JsonObject { ["deleted"] = false, ["reason"] = "not found" };
+                    table.Delete();
+                    break;
+                case "screen":
+                    var screen = hmi.ScreenFolder.Screens.Find(name);
+                    if (screen == null) return new JsonObject { ["deleted"] = false, ["reason"] = "not found" };
+                    screen.Delete();
+                    break;
+                case "connection":
+                    var conn = hmi.Connections.Find(name);
+                    if (conn == null) return new JsonObject { ["deleted"] = false, ["reason"] = "not found" };
+                    conn.Delete();
+                    break;
+                default:
+                    throw new ArgumentException("type must be tagTable | screen | connection");
+            }
+            return new JsonObject { ["deleted"] = true, ["type"] = type, ["name"] = name };
         }
 
         public void CloseProject()

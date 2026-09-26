@@ -19,7 +19,12 @@ dotnet build TiaMcpServer.csproj -c Release
 ```powershell
 TiaMcpServer.exe            # 作为 MCP stdio 服务器运行（由 MCP 客户端拉起）
 TiaMcpServer.exe --tools    # 打印工具清单（自检，不启动 TIA）
+TiaMcpServer.exe --doctor   # 环境体检：TIA 安装/API dll/.NET 4.8/用户组/授权，逐项给结论
+TiaMcpServer.exe --config   # 一键写入 VS Code 的 mcp.json（用户级+项目级，已有配置自动备份 .bak）
 ```
+
+> **headless 连接**：默认 `WithoutUserInterface` 模式，冷启动约 10-30 秒（比带界面快 ~10 倍）。
+> 首次连接 TIA 会弹 Openness 授权窗，勾"始终允许"一次后免弹。
 
 ## 客户端配置
 
@@ -53,6 +58,7 @@ TiaMcpServer.exe --tools    # 打印工具清单（自检，不启动 TIA）
 | `tia_project_status` | — | 当前工程状态（设备、PLC、HMI、连接、画面、变量表） |
 | `tia_save_project` | — | 保存工程 |
 | `tia_close_project` | — | 关闭工程（TIA 会话保持） |
+| `tia_delete_object` | `type`, `name` | 删除 HMI 对象：type=`tagTable`\|`screen`\|`connection`（工程维护） |
 
 ### 查询类
 | 工具 | 说明 |
@@ -64,8 +70,8 @@ TiaMcpServer.exe --tools    # 打印工具清单（自检，不启动 TIA）
 ### 导入类
 | 工具 | 参数 | 说明 |
 | --- | --- | --- |
-| `tia_import_tag_table` | `xmlPath` | 导入标签表 XML。**V18 已验证规则**：非集成连接 + 绝对地址（`LogicalAddress=%M0.0`、无 ControllerTag）+ 标签名全局唯一 + `Engineering version="V18"` + `AddressAccessMode=Absolute` |
-| `tia_import_screen` | `xmlPath` | 导入画面 XML。**V18 已验证规则**：元素含 `ObjectName`、画面号唯一、Button 不含 `Enabled`/`Visible` |
+| `tia_import_tag_table` | `xmlPath` | 导入标签表 XML。**V18 已验证规则**：非集成连接 + 绝对地址（`LogicalAddress=%M0.0`、无 ControllerTag）+ 标签名全局唯一 + `Engineering version="V18"` + `AddressAccessMode=Absolute` + **Simatic ML ID 全 HMI 设备唯一（建议用 900xxx 大 ID 避开已有对象）** + **变量名不得与工程既有变量重名**（重名报"object already exists"） |
+| `tia_import_screen` | `xmlPath` | 导入画面 XML。**V18 已验证规则**：元素含 `ObjectName`、画面号唯一、Button 不含 `Enabled`/`Visible`；导入后回读 `verified` |
 
 ### 编译类
 | 工具 | 参数 | 说明 |
@@ -107,10 +113,12 @@ TiaMcpServer.exe --tools    # 打印工具清单（自检，不启动 TIA）
 | --- | --- |
 | initialize / tools/list / tools/call 协议握手 | ✅ |
 | tia_open_project → TEST01（PLC_1 + HMI_RT_1） | ✅ 设备/连接/画面/变量表完整返回 |
-| tia_import_tag_table（非集成+绝对地址） | ✅ `测试_MCP表` 导入成功 |
-| tia_import_screen（构建器产物） | ✅ `画面_测试MCP` 导入成功 |
-| tia_compile all | ✅ PLC Success（0 错误）+ HMI Success（0 错误） |
+| tia_import_tag_table（非集成+绝对地址+大 ID） | ✅ 导入成功 + verified 回读 |
+| tia_import_screen（构建器产物） | ✅ 导入成功 + verified 回读 |
+| tia_compile all（headless 模式） | ✅ PLC Success（0 错误）+ HMI Success（0 错误） |
+| tia_delete_object（清理测试残留 4 项） | ✅ 全部删除 |
 | tia_save_project | ✅ 已保存 |
+| --doctor / --config CLI | ✅ 体检全绿 / 双配置写入
 
 ## 许可与来源
 

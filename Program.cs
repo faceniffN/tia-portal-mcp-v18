@@ -35,8 +35,11 @@ namespace TiaMcpServer
             if (args.Length > 0 && (args[0] == "--help" || args[0] == "-h" || args[0] == "--version"))
             {
                 Console.WriteLine("TiaMcpServer — TIA Portal V18 Openness MCP 服务器 (stdio)");
-                Console.WriteLine("用法: TiaMcpServer.exe            # 作为 MCP stdio 服务器运行");
-                Console.WriteLine("      TiaMcpServer.exe --tools    # 打印工具清单（自检）");
+                Console.WriteLine("用法:");
+                Console.WriteLine("  TiaMcpServer.exe              # 作为 MCP stdio 服务器运行");
+                Console.WriteLine("  TiaMcpServer.exe --tools      # 打印工具清单（自检）");
+                Console.WriteLine("  TiaMcpServer.exe --doctor     # 环境体检（TIA/API/.NET/用户组/授权）");
+                Console.WriteLine("  TiaMcpServer.exe --config     # 一键写入 VS Code 的 MCP 配置");
                 return 0;
             }
 
@@ -44,6 +47,16 @@ namespace TiaMcpServer
             {
                 foreach (var t in BuildTools(new TiaService())) Console.WriteLine(t.Name + " — " + t.Description);
                 return 0;
+            }
+
+            if (args.Length > 0 && args[0] == "--doctor")
+            {
+                return Doctor();
+            }
+
+            if (args.Length > 0 && args[0] == "--config")
+            {
+                return WriteConfig();
             }
 
             using (var service = new TiaService())
@@ -156,6 +169,14 @@ namespace TiaMcpServer
 
             tools.Add(new ToolDef
             {
+                Name = "tia_delete_object",
+                Description = "删除 HMI 对象：type 为 tagTable | screen | connection，name 为对象名（工程维护，借鉴 bulaofen 能力）。",
+                InputSchema = Schema(new[] { Prop("type", "tagTable | screen | connection"), Prop("name", "对象名称") }),
+                Handler = args => tia.DeleteObject(GetStr(args, "type"), GetStr(args, "name"))
+            });
+
+            tools.Add(new ToolDef
+            {
                 Name = "hmi_build_package",
                 Description = "离线生成 Classic HMI 资产（标签表+画面 XML+manifest）并归一化为 V18 版。输入 package JSON（Name/TagTable/ScreenDesign），输出到指定目录。",
                 InputSchema = Schema(new[]
@@ -234,6 +255,125 @@ namespace TiaMcpServer
             var schema = new JsonObject { ["type"] = "string", ["description"] = description };
             if (defaultValue != null) schema["default"] = defaultValue;
             return new JsonObject { ["_name"] = name, ["_schema"] = schema };
+        }
+
+        // ===== CLI 辅助：--doctor 环境体检（借鉴 bulaofen doctor 思路） =====
+
+        private static int Doctor()
+        {
+            bool allOk = true;
+            Console.WriteLine("== TIA Portal V18 Openness 环境体检 ==");
+
+            // 1. TIA 安装目录
+            string tiaRoot = @"D:\TIA\Portal V18";
+            bool tiaOk = Directory.Exists(tiaRoot);
+            Console.WriteLine((tiaOk ? "[OK] " : "[FAIL] ") + "TIA 安装目录: " + tiaRoot);
+            allOk &= tiaOk;
+
+            // 2. PublicAPI 程序集
+            string apiDir = Path.Combine(tiaRoot, "PublicAPI", "V18");
+            string engDll = Path.Combine(apiDir, "Siemens.Engineering.dll");
+            string hmiDll = Path.Combine(apiDir, "Siemens.Engineering.Hmi.dll");
+            bool engOk = File.Exists(engDll);
+            bool hmiOk = File.Exists(hmiDll);
+            Console.WriteLine((engOk ? "[OK] " : "[FAIL] ") + "Openness API: Siemens.Engineering.dll  " + (engOk ? engDll : "（缺失）"));
+            Console.WriteLine((hmiOk ? "[OK] " : "[FAIL] ") + "Openness API: Siemens.Engineering.Hmi.dll  " + (hmiOk ? hmiDll : "（缺失，HMI 标签局部类型不可用）"));
+            allOk &= engOk && hmiOk;
+
+            // 3. .NET Framework 4.8
+            int release = 0;
+            try
+            {
+                using (Microsoft.Win32.RegistryKey key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full"))
+                {
+                    if (key != null) release = Convert.ToInt32(key.GetValue("Release", 0));
+                }
+            }
+            catch (Exception) { }
+            bool netOk = release >= 528040;
+            Console.WriteLine((netOk ? "[OK] " : "[FAIL] ") + ".NET Framework 4.8: Release=" + release + (netOk ? "（满足）" : "（需 ≥528040）"));
+            allOk &= netOk;
+
+            // 4. Siemens TIA Openness 用户组
+            bool inGroup = false;
+            try
+            {
+                string who = RunProcess("whoami", "/groups");
+                inGroup = who.IndexOf("Siemens TIA Openness", StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+            catch (Exception) { }
+            Console.WriteLine((inGroup ? "[OK] " : "[WARN] ") + "用户组 Siemens TIA Openness: " + (inGroup ? "当前用户已加入（免弹窗前提，仍建议 GUI 授权一次）" : "当前用户未加入/未生效（注销重登生效；GUI 首次弹窗点'始终允许'也可）"));
+            allOk &= inGroup;
+
+            // 5. Openness 授权记录
+            bool auth = false;
+            try
+            {
+                using (Microsoft.Win32.RegistryKey key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Siemens\Automation\Openness"))
+                {
+                    auth = key != null;
+                }
+            }
+            catch (Exception) { }
+            Console.WriteLine((auth ? "[OK] " : "[WARN] ") + "Openness 授权记录: " + (auth ? "已存在（曾授权）" : "无——首次连接 TIA 会弹授权窗，勾'始终允许'一次即可"));
+
+            Console.WriteLine();
+            Console.WriteLine(allOk ? "体检通过：环境满足运行条件。" : "体检完成：有 FAIL 项需处理（见上）。");
+            return allOk ? 0 : 1;
+        }
+
+        // ===== CLI 辅助：--config 一键写入 VS Code MCP 配置（借鉴 bulaofen 配置MCP.bat） =====
+
+        private static int WriteConfig()
+        {
+            string exePath = typeof(Program).Assembly.Location;
+            string configJson = "{\n  \"servers\": {\n    \"tia-v18\": {\n      \"type\": \"stdio\",\n      \"command\": \"" + exePath.Replace("\\", "\\\\") + "\",\n      \"args\": []\n    }\n  }\n}\n";
+
+            int written = 0;
+
+            // 用户级
+            string userDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Code", "User");
+            string userCfg = Path.Combine(userDir, "mcp.json");
+            try
+            {
+                if (File.Exists(userCfg) && !File.Exists(userCfg + ".bak"))
+                    File.Copy(userCfg, userCfg + ".bak");
+                Directory.CreateDirectory(userDir);
+                File.WriteAllText(userCfg, configJson, new System.Text.UTF8Encoding(false));
+                Console.WriteLine("[OK] 已写入用户级配置: " + userCfg);
+                written++;
+            }
+            catch (Exception ex) { Console.WriteLine("[FAIL] 用户级配置: " + ex.Message); }
+
+            // 项目级（当前工作目录）
+            string projCfg = Path.Combine(Directory.GetCurrentDirectory(), ".vscode", "mcp.json");
+            try
+            {
+                if (File.Exists(projCfg) && !File.Exists(projCfg + ".bak"))
+                    File.Copy(projCfg, projCfg + ".bak");
+                Directory.CreateDirectory(Path.GetDirectoryName(projCfg));
+                File.WriteAllText(projCfg, configJson, new System.Text.UTF8Encoding(false));
+                Console.WriteLine("[OK] 已写入项目级配置: " + projCfg);
+                written++;
+            }
+            catch (Exception ex) { Console.WriteLine("[FAIL] 项目级配置: " + ex.Message); }
+
+            Console.WriteLine(written > 0 ? "完成：重启 VS Code 后在 Copilot Chat 中选择 MCP 服务器 tia-v18。" : "失败：未能写入任何配置。");
+            return written > 0 ? 0 : 1;
+        }
+
+        private static string RunProcess(string fileName, string arguments)
+        {
+            using (var p = new System.Diagnostics.Process())
+            {
+                p.StartInfo.FileName = fileName;
+                p.StartInfo.Arguments = arguments;
+                p.StartInfo.UseShellExecute = false;
+                p.StartInfo.RedirectStandardOutput = true;
+                p.StartInfo.CreateNoWindow = true;
+                p.Start();
+                return p.StandardOutput.ReadToEnd();
+            }
         }
     }
 }
