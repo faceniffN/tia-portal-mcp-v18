@@ -66,7 +66,7 @@ TiaMcpServer.exe --config   # 一键写入 VS Code 的 mcp.json（用户级+项�
 首次被客户端拉起并打开工程时，TIA Portal 会弹 **Openness 应用授权** 窗口——勾选"始终允许"一次，
 此后免弹窗（TIA 会记住授权）。
 
-## 工具清单（13 个）
+## 工具清单（17 个）
 
 ### 工程类
 | 工具 | 参数 | 说明 |
@@ -77,6 +77,12 @@ TiaMcpServer.exe --config   # 一键写入 VS Code 的 mcp.json（用户级+项�
 | `tia_close_project` | — | 关闭工程（TIA 会话保持） |
 | `tia_delete_object` | `type`, `name` | 删除 HMI 对象：type=`tagTable`\|`screen`\|`connection`（工程维护） |
 | `tia_shutdown` | — | **彻底释放**：关工程 + 释放 TIA + 清理无窗口 headless 进程，解锁工程文件（收尾必调，之后可开 GUI 查看） |
+
+### 模板类（背景模板，V18 实测）
+| 工具 | 参数 | 说明 |
+| --- | --- | --- |
+| `tia_create_template` | `name`, `width`, `height`, `backColor` | 新建 HMI 模板画面（XML 导入 `ScreenTemplateFolder`）。纯色背景+空图层；模板导入不支持 TextField 的 Text/ColorSet（元素请 GUI 添加） |
+| `tia_apply_template` | `screenName`, `templateName` | 给画面应用背景模板：导出画面 XML → 注入 `LinkList/Template/Name` 引用 → 重建画面（**画面内容保留**）。Openness 无公开属性，XML 层实现 |
 
 ### 查询类
 | 工具 | 说明 |
@@ -166,6 +172,8 @@ AI 打开工程 → TIA 窗口弹出，你全程可见
 | tia_open_project → TEST01（PLC_1 + HMI_RT_1） | ✅ 设备/连接/画面/变量表完整返回 |
 | tia_import_tag_table（非集成+绝对地址+大 ID） | ✅ 导入成功 + verified 回读 |
 | tia_import_screen（构建器产物） | ✅ 导入成功 + verified 回读 |
+| tia_create_template（模板_2 XML 导入） | ✅ 创建成功（1280×800 背景色自定义） |
+| tia_apply_template（画面_2 ← 模板_2） | ✅ 画面内容保留 + 模板引用生效 + 编译全绿 |
 | tia_compile all（headless 模式） | ✅ PLC Success（0 错误）+ HMI Success（0 错误） |
 | tia_delete_object（清理测试残留 4 项） | ✅ 全部删除 |
 | tia_save_project | ✅ 已保存 |

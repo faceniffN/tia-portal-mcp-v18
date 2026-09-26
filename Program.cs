@@ -187,6 +187,34 @@ namespace TiaMcpServer
 
             tools.Add(new ToolDef
             {
+                Name = "tia_create_template",
+                Description = "新建 HMI 模板画面（背景模板）。参数：name（模板名，必填）、width（默认1280）、height（默认800）、backColor（RGB，默认 153, 204, 255）。模板为纯色背景+空图层（V18 模板 XML 导入不支持 TextField 的 Text/ColorSet，元素请 GUI 添加）。已实测。",
+                InputSchema = Schema(new[]
+                {
+                    Prop("name", "模板名称"),
+                    Prop("width", "宽度像素，默认 1280", "1280"),
+                    Prop("height", "高度像素，默认 800", "800"),
+                    Prop("backColor", "背景色 RGB，默认 153, 204, 255", "153, 204, 255")
+                }),
+                Handler = args =>
+                {
+                    int w = 1280, h = 800;
+                    int.TryParse(GetStr(args, "width", "1280"), out w);
+                    int.TryParse(GetStr(args, "height", "800"), out h);
+                    return tia.CreateTemplate(GetStr(args, "name"), w, h, GetStr(args, "backColor", "153, 204, 255"));
+                }
+            });
+
+            tools.Add(new ToolDef
+            {
+                Name = "tia_apply_template",
+                Description = "给指定画面应用模板作为背景。参数：screenName（画面名）、templateName（模板名）。流程：导出画面→注入 LinkList 模板引用→重建画面（画面内容保留）。已实测（画面背景模板 XML 结构：LinkList/Template/Name）。",
+                InputSchema = Schema(new[] { Prop("screenName", "画面名称"), Prop("templateName", "模板名称") }),
+                Handler = args => tia.ApplyTemplate(GetStr(args, "screenName"), GetStr(args, "templateName"))
+            });
+
+            tools.Add(new ToolDef
+            {
                 Name = "tia_shutdown",
                 Description = "彻底关闭：关闭工程 + 释放 TIA 会话，解锁工程文件（用户可立即用 GUI 打开查看）。操作完成后的收尾调用。",
                 InputSchema = Schema(),
